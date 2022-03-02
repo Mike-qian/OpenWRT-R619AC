@@ -1,4 +1,4 @@
-# OpenWRT-R619AC
+# OpenWRT-Build
 
 [![LICENSE](https://img.shields.io/github/license/mashape/apistatus.svg?style=flat-square&label=LICENSE)](https://github.com/Aibx/OpenWRT-R619AC/blob/master/LICENSE)
 ![GitHub Stars](https://img.shields.io/github/stars/Aibx/OpenWRT-R619AC.svg?style=flat-square&label=Stars&logo=github)
