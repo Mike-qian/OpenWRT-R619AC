@@ -18,7 +18,7 @@
 # sed -i '$a src-git adh https://github.com/Aibx/luci-app-adguardhome' feeds.conf.default
 sed -i '$a src-git Aibx https://github.com/Aibx/openwrt-packages' feeds.conf.default
 cd package
-git clone https://github.com/kenzok8/jell/tree/main/luci-app-syncdial
+git clone https://github.com/kenzok8/jell.git
 cd ..
 make menuconfig
 make package/luci-app-syncdial/compile V=s
