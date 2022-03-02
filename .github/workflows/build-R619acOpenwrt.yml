@@ -81,7 +81,7 @@ jobs:
 
     - name: Load custom configuration
       run: |
-      git clone https://github.com/kenzok8/jell/tree/main/luci-app-syncdial package/luci-app-syncdial
+
         [ -e files ] && mv files openwrt/files
         [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
         chmod +x $DIY_P2_SH
