@@ -13,7 +13,7 @@ name: updatetest checker
 
 env:
   REPO_URL: https://github.com/kenzok8/jell
-  REPO_BRANCH: packages-18.06
+  REPO_BRANCH: 
 
 on:
   workflow_dispatch:
