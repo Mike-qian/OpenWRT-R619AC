@@ -4,7 +4,7 @@
 ![GitHub Stars](https://img.shields.io/github/stars/Aibx/OpenWRT-R619AC.svg?style=flat-square&label=Stars&logo=github)
 ![GitHub Forks](https://img.shields.io/github/forks/Aibx/OpenWRT-R619AC.svg?style=flat-square&label=Forks&logo=github)
 
-## 竞斗云Openwrt自动编译
+## Openwrt自动编译
 
 > 自动编译固件可能存在各种问题，如发现请前往各自软件仓库处询问并等待更新或下载旧版进行降级操作
 
