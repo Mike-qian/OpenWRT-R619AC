@@ -16,5 +16,5 @@
 # Add a feed source
 # sed -i '$a src-git lienol https://github.com/Lienol/openwrt-package' feeds.conf.default
 # sed -i '$a src-git adh https://github.com/Aibx/luci-app-adguardhome' feeds.conf.default
-sed -i '$a src-git Aibx https://github.com/Aibx/openwrt-packages' feeds.conf.default
+# sed -i '$a src-git Aibx https://github.com/Aibx/openwrt-packages' feeds.conf.default
 sed -i '$a src-git jell https://github.com/kenzok8/jell' feeds.conf.default
