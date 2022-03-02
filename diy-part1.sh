@@ -17,8 +17,4 @@
 # sed -i '$a src-git lienol https://github.com/Lienol/openwrt-package' feeds.conf.default
 # sed -i '$a src-git adh https://github.com/Aibx/luci-app-adguardhome' feeds.conf.default
 sed -i '$a src-git Aibx https://github.com/Aibx/openwrt-packages' feeds.conf.default
-cd package
-git clone https://github.com/kenzok8/jell.git
-cd ..
-make menuconfig
-make package/luci-app-syncdial/compile V=s
+git clone https://github.com/kenzok8/jell.git  package/openwrt-packages
