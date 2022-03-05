@@ -16,8 +16,8 @@ on:
     inputs:
       ssh:
         description: 'true'
-        required: false
-        default: 'false'
+        required: true
+        default: 'true'
 #   schedule:
 #    - cron: 10 */12 * * *
 #   watch:
