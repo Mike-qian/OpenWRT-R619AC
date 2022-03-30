@@ -21,3 +21,4 @@ sed -i '$a src-git jell https://github.com/kenzok8/jell' feeds.conf.default
 #git clone https://github.com/Aibx/openwrt-packages package/openwrt-packages
 #git clone https://github.com/kenzok8/openwrt-packages package/openwrt-packages
 #git clone https://github.com/kenzok8/small.git package/openwrt-small
+git clone https://github.com/kenzok8/small.git package/openwrt-packages
