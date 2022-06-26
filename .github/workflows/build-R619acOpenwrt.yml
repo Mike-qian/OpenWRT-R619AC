@@ -8,7 +8,7 @@
 # Description: Build OpenWrt using GitHub Actions
 #
 
-name: Build R619acOpenWrt
+name: Build OpenWrt
 
 on:
   repository_dispatch:
@@ -32,18 +32,14 @@ env:
   DIY_P2_SH: diy-part2.sh
   UPLOAD_BIN_DIR: true
   UPLOAD_FIRMWARE: true
-  UPLOAD_COWTRANSFER: false
+  UPLOAD_COWTRANSFER: true
   UPLOAD_WETRANSFER: true
   UPLOAD_RELEASE: true
-  # 删除无用文件以增加编译空间
-  DELETE_USELESS_FILES: true
-# 删除早期的 workflow 任务
-  DELETE_OLD_WORKFLOW: true
   TZ: Asia/Shanghai
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
 #     if: github.event.repository.owner.id == github.event.sender.id
     
     steps:
@@ -85,7 +81,6 @@ jobs:
 
     - name: Load custom configuration
       run: |
-
         [ -e files ] && mv files openwrt/files
         [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
         chmod +x $DIY_P2_SH
