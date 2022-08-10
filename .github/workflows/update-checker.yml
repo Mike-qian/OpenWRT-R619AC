@@ -13,7 +13,7 @@ name: Update Checker
 
 env:
   REPO_URL: https://github.com/Aibx/OpenWRT-Packages
-  REPO_BRANCH: packages-18.06
+  REPO_BRANCH: packages-19.07
 
 on:
   workflow_dispatch:
