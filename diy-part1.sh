@@ -22,3 +22,4 @@ sed -i '$a src-git jell https://github.com/kenzok8/jell' feeds.conf.default
 #git clone https://github.com/kenzok8/openwrt-packages package/openwrt-packages
 #git clone https://github.com/kenzok8/small.git package/openwrt-small
 sed -i '$a src-git small https://github.com/kenzok8/small' feeds.conf.default
+sed -i '$a src-git shidahuilang https://github.com/shidahuilang/openwrt-package.git' feeds.conf.default
