@@ -112,8 +112,8 @@ jobs:
           #src-link xuanranran feeds/xuanranran
           #src-link kiddin9 feeds/kiddin9
           ./scripts/feeds install -a
-          #./scripts/feeds install xuanranran
-          #./scripts/feeds install kiddin9
+          ./scripts/feeds install xuanranran
+          ./scripts/feeds install kiddin9
           
           ./scripts/feeds uninstall {mmdvm,mmdvm-host,p25-clients,ysf-clients,nxdn-clients,mmdvm-luci,dapnet-gateway,ircddb-gateway,libmmdvm,libwxwidgets,mmdvm-cal}
     - name: 加载自定义配置
