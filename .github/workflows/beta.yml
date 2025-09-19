@@ -109,9 +109,10 @@ jobs:
           git clone https://github.com/sbwml/packages_lang_golang.git feeds/packages/lang/golang
           git clone https://github.com/xuanranran/openwrt-package.git feeds/xuanranran
           git clone https://github.com/kiddin9/kwrt-packages.git feeds/kiddin9
-          src-link xuanranran feeds/xuanranran
-          src-link kiddin9 feeds/kiddin9
-          ./scripts/feeds install -a
+          #src-link xuanranran feeds/xuanranran
+          #src-link kiddin9 feeds/kiddin9
+          ./scripts/feeds install xuanranran
+          ./scripts/feeds install kiddin9
           ./scripts/feeds uninstall {mmdvm,mmdvm-host,p25-clients,ysf-clients,nxdn-clients,mmdvm-luci,dapnet-gateway,ircddb-gateway,libmmdvm,libwxwidgets,mmdvm-cal}
     - name: 加载自定义配置
       run: |
