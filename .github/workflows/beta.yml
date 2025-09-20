@@ -105,6 +105,8 @@ jobs:
           git clone https://github.com/xuanranran/openwrt-package.git feeds/xuanranran
           git clone https://github.com/kiddin9/kwrt-packages.git feeds/kiddin9
           ./scripts/feeds update -a
+          ./scripts/feeds update xuanranran
+          ./scripts/feeds update kiddin9
           
 
     - name: 安装 feeds
