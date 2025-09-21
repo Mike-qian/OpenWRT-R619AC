@@ -102,8 +102,6 @@ jobs:
     - name: 更新 feeds
       run:  |
           cd openwrt
-          git clone https://github.com/xuanranran/openwrt-package.git feeds/xuanranran
-          git clone https://github.com/kiddin9/kwrt-packages.git feeds/kiddin9
           ./scripts/feeds update -a
           
     - name: 安装 feeds
@@ -113,7 +111,6 @@ jobs:
           git clone https://github.com/sbwml/packages_lang_golang.git feeds/packages/lang/golang
           ./scripts/feeds install -a
           ./scripts/feeds uninstall {mmdvm,mmdvm-host,p25-clients,ysf-clients,nxdn-clients,mmdvm-luci,dapnet-gateway,ircddb-gateway,libmmdvm,libwxwidgets,mmdvm-cal}
-          make package/symlinks
  
     - name: 加载自定义配置
       run: |
