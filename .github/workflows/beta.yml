@@ -70,8 +70,8 @@ jobs:
       - name: 安装 Go 环境
         uses: actions/setup-go@v5  # 升级到最新版
         with:
-          go-version: '1.21.x'  # 指定稳定版本，避免自动升级到不兼容版本
-          cache: false  # 禁用缓存，减少空间占用
+         # go-version: '1.21.x'  # 指定稳定版本，避免自动升级到不兼容版本
+         # cache: false  # 禁用缓存，减少空间占用
 
       - name: 初始化编译环境
         env:
