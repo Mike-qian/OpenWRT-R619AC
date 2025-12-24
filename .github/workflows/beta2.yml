@@ -85,21 +85,39 @@ jobs:
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
-        mkdir -p ~/.ccache
-        echo 'max_size = 10G' > ~/.ccache/ccache.conf
-        echo 'cache_dir = ~/.ccache' >> ~/.ccache/ccache.conf
-        
-    - name: 恢复ccache缓存
-      uses: actions/cache@v3
-      with:
-        path: ~/.ccache
-        key: openwrt-ccache-${{ env.REPO_BRANCH }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_P1_SH, env.DIY_P2_SH) }}
-        restore-keys: |
-          openwrt-ccache-${{ env.REPO_BRANCH }}-
         
     - name: 克隆源码
       run: |
         git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
+
+    - name: 缓存编译依赖和工具链
+      uses: actions/cache@v4
+      with:
+        path: |
+          openwrt/staging_dir
+          openwrt/build_dir
+        key: ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-toolchain-${{ hashFiles('openwrt/.config') }}
+        restore-keys: |
+          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-toolchain-
+          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-
+
+    - name: 缓存下载的软件包
+      uses: actions/cache@v4
+      with:
+        path: openwrt/dl
+        key: ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-dl-${{ hashFiles('openwrt/feeds.conf', 'openwrt/.config') }}
+        restore-keys: |
+          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-dl-
+          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-
+
+    - name: 缓存已安装的feeds
+      uses: actions/cache@v4
+      with:
+        path: openwrt/feeds
+        key: ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-feeds-${{ hashFiles('openwrt/feeds.conf') }}
+        restore-keys: |
+          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-feeds-
+          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-
 
 
 
@@ -137,14 +155,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.TOKEN }}
 
-    - name: 恢复dl目录缓存
-      uses: actions/cache@v3
-      with:
-        path: ./openwrt/dl
-        key: openwrt-dl-${{ env.REPO_BRANCH }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_P1_SH, env.DIY_P2_SH) }}
-        restore-keys: |
-          openwrt-dl-${{ env.REPO_BRANCH }}-
-
     - name: 下载软件包
       id: package
       run: |
@@ -154,44 +164,16 @@ jobs:
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
-    - name: 保存dl目录缓存
-      uses: actions/cache@v3
-      with:
-        path: ./openwrt/dl
-        key: openwrt-dl-${{ env.REPO_BRANCH }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_P1_SH, env.DIY_P2_SH) }}
-
-    - name: 恢复工具链缓存
-      uses: actions/cache@v3
-      with:
-        path: ./openwrt/staging_dir/toolchain-*
-        key: openwrt-toolchain-${{ env.REPO_BRANCH }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_P1_SH, env.DIY_P2_SH) }}
-        restore-keys: |
-          openwrt-toolchain-${{ env.REPO_BRANCH }}-
-
     - name: 编译固件
       id: compile
-      env:
-        CCACHE_DIR: ~/.ccache
-        CCACHE_MAXSIZE: 10G
-        CCACHE_HASHDIR: false
       run: |
         cd openwrt
-        echo -e "$(nproc) thread compile with ccache"
-        ccache -s
-        make -j$(nproc) CCACHE=1 || make -j1 CCACHE=1 || make -j1 CCACHE=1 V=s
-        ccache -s
+        echo -e "$(nproc) thread compile"
+        make -j$(nproc) || make -j1 || make -j1 V=s
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
         echo "status=success" >> ${GITHUB_OUTPUT}
-
-    - name: 保存ccache缓存
-      uses: actions/cache@v3
-      with:
-        path: ~/.ccache
-        key: openwrt-ccache-${{ env.REPO_BRANCH }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_P1_SH, env.DIY_P2_SH) }}-${{ github.run_id }}-1
-        restore-keys: |
-          openwrt-ccache-${{ env.REPO_BRANCH }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_P1_SH, env.DIY_P2_SH) }}-
 
     - name: 检查磁盘空间
       if: (!cancelled())
