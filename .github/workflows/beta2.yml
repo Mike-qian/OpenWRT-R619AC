@@ -1,4 +1,4 @@
-name: Build-R619ac-Im-24.10
+name: Build-R619ac-24.10
 
 on:
   repository_dispatch:
@@ -23,6 +23,21 @@ env:
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
   GITHUB_TOKEN: ${{ secrets.TOKEN }}
+  # 优化编译环境变量
+  CCACHE_DIR: /github/home/.ccache
+  CCACHE_MAXSIZE: 10G
+  CCACHE_COMPRESS: 1
+  CCACHE_COMPRESSLEVEL: 8
+  CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime,file_macro
+  CCACHE_HARDLINK: 1
+  # 优化下载环境变量
+  GIT_SSL_NO_VERIFY: 1
+  # 优化编译变量
+  MAKEFLAGS: -j$(nproc) --output-sync=target
+  GCC_COLORS: auto
+  # 优化链接器
+  LD: lld
+  LDFLAGS: -fuse-ld=lld
 
 jobs:
   build:
@@ -70,11 +85,15 @@ jobs:
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
+        # 清理不需要的文件和目录
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-        docker rmi $(docker images -q) 2>/dev/null
+        docker rmi $(docker images -q) 2>/dev/null || true
+        # 更换为更快的APT源
+        sudo sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
+        sudo sed -i 's/security.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
+        # 优化APT更新和安装
         sudo -E apt-get -qq update -y
-        sudo -E apt-get -qq full-upgrade -y
-        sudo -E apt-get -qq install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+        sudo -E apt-get -qq install -y --no-install-recommends ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
         bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
         g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
         libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev \
@@ -82,13 +101,26 @@ jobs:
         ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
         python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs \
         upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
-        sudo -E apt-get -qq autoremove --purge
-        sudo -E apt-get -qq clean
+        # 清理APT缓存
+        sudo -E apt-get -qq autoremove --purge -y
+        sudo -E apt-get -qq clean -y
+        sudo rm -rf /var/lib/apt/lists/*
+        # 设置时区
         sudo timedatectl set-timezone "$TZ"
+        # 优化磁盘I/O
+        sudo sysctl -w vm.dirty_ratio=10
+        sudo sysctl -w vm.dirty_background_ratio=5
+        # 启用ccache并设置
+        ccache --set-config=max_size=10G
+        ccache --set-config=compression=true
+        ccache --set-config=compression_level=8
+        ccache --set-config=hardlink=true
+        ccache --set-config=sloppiness=time_macros,include_file_mtime,include_file_ctime,file_macro
         
     - name: 克隆源码
       run: |
-        git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
+        # 优化git克隆，使用--depth 1减少下载量，添加--single-branch和--no-tags选项
+        git clone --depth 1 --single-branch --no-tags $REPO_URL -b $REPO_BRANCH openwrt
 
     - name: 设置缓存
       uses: actions/cache@v4
@@ -98,9 +130,13 @@ jobs:
           openwrt/build_dir
           openwrt/staging_dir
           openwrt/feeds
+          openwrt/.config
           ~/.ccache
-        key: ${{ runner.os }}-openwrt-${{ env.REPO_BRANCH }}-${{ hashFiles('${{ env.DIY_P1_SH }}', '${{ env.DIY_P2_SH }}', '${{ env.CONFIG_FILE }}') }}
+          ~/.cache
+          /tmp/dl*
+        key: ${{ runner.os }}-openwrt-${{ env.REPO_BRANCH }}-${{ hashFiles('${{ env.DIY_P1_SH }}', '${{ env.DIY_P2_SH }}', '${{ env.CONFIG_FILE }}') }}-${{ github.sha }}
         restore-keys: |
+          ${{ runner.os }}-openwrt-${{ env.REPO_BRANCH }}-${{ hashFiles('${{ env.DIY_P1_SH }}', '${{ env.DIY_P2_SH }}', '${{ env.CONFIG_FILE }}') }}-
           ${{ runner.os }}-openwrt-${{ env.REPO_BRANCH }}-
 
     - name: 加载自定义 feeds
@@ -113,14 +149,16 @@ jobs:
     - name: 更新 feeds
       run:  |
           cd openwrt
-          ./scripts/feeds update -a
+          # 优化feeds更新，使用-j选项并行更新
+          ./scripts/feeds update -a -j$(nproc)
           
     - name: 安装 feeds
       run: |
           cd openwrt
           rm -rf feeds/packages/lang/golang
           git clone https://github.com/sbwml/packages_lang_golang.git feeds/packages/lang/golang
-          ./scripts/feeds install -a
+          # 优化feeds安装，使用-j选项并行安装
+          ./scripts/feeds install -a -j$(nproc)
           ./scripts/feeds uninstall {mmdvm,mmdvm-host,p25-clients,ysf-clients,nxdn-clients,mmdvm-luci,dapnet-gateway,ircddb-gateway,libmmdvm,libwxwidgets,mmdvm-cal}
  
     - name: 加载自定义配置
@@ -142,7 +180,8 @@ jobs:
       run: |
         cd openwrt
         make defconfig
-        make download -j8
+        # 增加下载并行度
+        make download -j$(nproc)
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
@@ -155,10 +194,24 @@ jobs:
         echo 'CONFIG_CCACHE=y' >> .config
         echo 'CONFIG_CCACHE_DIR="/github/home/.ccache"' >> .config
         echo 'CONFIG_CCACHE_COMPRESS=y' >> .config
-        echo 'CONFIG_CCACHE_COMPRESSLEVEL=6' >> .config
-        echo 'CONFIG_CCACHE_MAXSIZE="5G"' >> .config
+        echo 'CONFIG_CCACHE_COMPRESSLEVEL=8' >> .config
+        echo 'CONFIG_CCACHE_MAXSIZE="10G"' >> .config
+        echo 'CONFIG_CCACHE_HARDLINK=y' >> .config
+        echo 'CONFIG_CCACHE_SLOPPINESS="time_macros,include_file_mtime,include_file_ctime,file_macro"' >> .config
+        # 优化编译选项
+        echo 'CONFIG_GCC_OPTIMIZE_FOR_PERFORMANCE=y' >> .config
+        echo 'CONFIG_GCC_USE_GRAPHITE=y' >> .config
+        echo 'CONFIG_PKG_ASLR_PIE_ALL=y' >> .config
+        # 设置编译并行度为CPU核心数+1，提高编译效率
+        CORES=$(($(nproc) + 1))
+        echo "Using $CORES threads for compilation"
         make defconfig
-        make -j$(nproc) CCACHE_DIR=/github/home/.ccache || make -j1 CCACHE_DIR=/github/home/.ccache || make -j1 V=s CCACHE_DIR=/github/home/.ccache
+        # 启用ccache统计
+        ccache -s
+        # 开始编译
+        make -j$CORES CCACHE_DIR=/github/home/.ccache || make -j1 CCACHE_DIR=/github/home/.ccache || make -j1 V=s CCACHE_DIR=/github/home/.ccache
+        # 显示ccache统计信息
+        ccache -s
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
