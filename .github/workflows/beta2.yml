@@ -131,7 +131,7 @@ jobs:
       with:
         limit-access-to-actor: false # 允许通过 SSH 链接直接访问
       env:
-        GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: 下载软件包
       id: package
