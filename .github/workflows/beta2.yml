@@ -83,35 +83,17 @@ jobs:
       run: |
         git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
 
-    - name: 缓存编译依赖和工具链
+    - name: 缓存编译环境
       uses: actions/cache@v4
       with:
         path: |
-          openwrt/staging_dir
-          openwrt/build_dir
-        key: ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-toolchain-${{ hashFiles('openwrt/.config') }}
+          openwrt/dl
+          openwrt/staging_dir/host
+          openwrt/staging_dir/toolchain
+        key: ${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-${{ hashFiles('openwrt/.config') }}
         restore-keys: |
-          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-toolchain-
-          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-
-
-    - name: 缓存下载的软件包
-      uses: actions/cache@v4
-      with:
-        path: openwrt/dl
-        key: ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-dl-${{ hashFiles('openwrt/feeds.conf', 'openwrt/.config') }}
-        restore-keys: |
-         # ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-dl-
-         # ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-
-
-    - name: 缓存已安装的feeds
-      uses: actions/cache@v4
-      with:
-        path: openwrt/feeds
-        key: ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-feeds-${{ hashFiles('openwrt/feeds.conf') }}
-        restore-keys: |
-          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-feeds-
-          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-
-
+          ${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-
+          ${{ runner.os }}-openwrt-24.10-
 
 
     - name: 加载自定义 feeds
