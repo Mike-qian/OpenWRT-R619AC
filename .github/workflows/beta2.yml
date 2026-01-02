@@ -90,6 +90,7 @@ jobs:
           openwrt/dl
           openwrt/staging_dir/host
           openwrt/staging_dir/toolchain
+          openwrt/.ccache
         key: ${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-${{ hashFiles('openwrt/.config') }}
         restore-keys: |
           ${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-
