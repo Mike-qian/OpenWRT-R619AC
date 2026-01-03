@@ -234,3 +234,21 @@ jobs:
       with:
         keep_latest: 7
         delete_tags: true
+
+    - name: Delete Old Cache (删除旧缓存)
+      shell: bash
+      run: |
+        CACHE_PREFIX="${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-"        
+        gh cache list --key "$CACHE_PREFIX" --json key --jq '.[] | .key' | while read -r key; do
+            echo "正在删除旧缓存: $key"
+            gh cache delete "$key"
+        done
+        
+        echo "旧缓存清理完成。"
+
+        echo "======== 当前本地缓存统计 ========"
+        [ -d "openwrt/dl" ] && echo "DL 文件夹: $(du -sh openwrt/dl | cut -f 1)"
+        [ -d "openwrt/.ccache" ] && echo "CCache 文件夹: $(du -sh openwrt/.ccache | cut -f 1)"
+        [ -d "openwrt/staging_dir" ] && echo "Staging Dir: $(du -sh openwrt/staging_dir | cut -f 1)"
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
