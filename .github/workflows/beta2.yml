@@ -9,7 +9,11 @@ on:
         required: false
         default: 'false'
   schedule:
-        - cron: 0 5 * * 5
+    - cron: 0 5 * * 5
+
+permissions:
+  contents: write
+  actions: write
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
@@ -22,10 +26,6 @@ env:
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
-  GITHUB_TOKEN: ${{ secrets.TOKEN }}
-permissions:
-      contents: write
-      actions: write
 
 jobs:
   build:
@@ -93,7 +93,6 @@ jobs:
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P1_SH
 
-
     - name: 缓存编译环境
       uses: actions/cache@v4
       with:
@@ -106,7 +105,6 @@ jobs:
           ${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-
           ${{ runner.os }}-openwrt-24.10-
     
-
     - name: 更新 feeds
       run:  |
           cd openwrt
@@ -132,7 +130,7 @@ jobs:
       uses: mxschmitt/action-tmate@v3
       if: github.event.inputs.ssh == 'true'
       with:
-        limit-access-to-actor: false # 允许通过 SSH 链接直接访问
+        limit-access-to-actor: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -192,41 +190,32 @@ jobs:
         touch release.txt
         echo "
         💻 路由: P&W R619AC 128M Immortalwrt
-
         📂 源码: ${{ env.REPO_URL }}
-
         🌳 分支: ${{ env.REPO_BRANCH }}
-
         ⏱️ 编译时间: $(date +"%Y年%m月%d日%H时%M分")
-
         🌐 管理地址: 192.168.1.1
-
         👤 用户名: root
-
         🔒 密码: 无密码 
-
         🚧 软件包-配置opkg-更新以下源
         src/gz openwrt_kiddin9 https://dl.openwrt.ai/latest/packages/arm_cortex-a7_neon-vfpv4/kiddin9
-        
         " >> release.txt
         echo "status=success" >> ${GITHUB_OUTPUT}
 
     - name: 自动发布固件到 Releases
       uses: softprops/action-gh-release@v2
       if: steps.tag.outputs.status == 'success' && !cancelled()
-      env:
-        GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
       with:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: ${{ env.FIRMWARE }}/*
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: 删除运行记录
       uses: Mattraks/delete-workflow-runs@main
       with:
         retain_days: 7
         keep_minimum_runs: 7
-        token: ${{ env.GITHUB_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: 删除自动发布的旧固件
       uses: dev-drprasad/delete-older-releases@master
@@ -234,6 +223,8 @@ jobs:
       with:
         keep_latest: 7
         delete_tags: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Delete Old Cache (删除旧缓存)
       shell: bash
@@ -243,12 +234,6 @@ jobs:
             echo "正在删除旧缓存: $key"
             gh cache delete "$key"
         done
-        
         echo "旧缓存清理完成。"
-
-        echo "======== 当前本地缓存统计 ========"
-        [ -d "openwrt/dl" ] && echo "DL 文件夹: $(du -sh openwrt/dl | cut -f 1)"
-        [ -d "openwrt/.ccache" ] && echo "CCache 文件夹: $(du -sh openwrt/.ccache | cut -f 1)"
-        [ -d "openwrt/staging_dir" ] && echo "Staging Dir: $(du -sh openwrt/staging_dir | cut -f 1)"
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
