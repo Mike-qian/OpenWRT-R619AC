@@ -75,7 +75,7 @@ jobs:
         DEBIAN_FRONTEND: noninteractive
       run: |
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-        docker rmi $(docker images -q) 2>/dev/null
+        docker rmi $(docker images -q) 2>/dev/null || true
         sudo -E apt-get -qq update -y
         sudo bash -c 'bash <(curl -s https://build-scripts.immortalwrt.org/init_build_environment.sh)'  
         sudo -E apt-get -qq autoremove --purge
