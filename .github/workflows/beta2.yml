@@ -11,9 +11,13 @@ on:
   schedule:
     - cron: 0 5 * * 5
 
+# 启用所有必要权限，确保自动生成的 GITHUB_TOKEN 拥有读写 Release、Actions 和内容的权限
 permissions:
   contents: write
   actions: write
+  discussions: write
+  pages: write
+  id-token: write
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
@@ -33,7 +37,7 @@ jobs:
 
     steps:
     - name: 准备完成
-      uses: actions/checkout@main
+      uses: actions/checkout@v4
 
     - name: 检查服务器配置
       run: |
@@ -159,7 +163,7 @@ jobs:
       run: df -hT
 
     - name: 上传 bin 文件夹
-      uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@v4
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
       with:
         name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
@@ -176,7 +180,7 @@ jobs:
         echo "status=success" >> ${GITHUB_OUTPUT}
 
     - name: 上传固件目录
-      uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@v4
       if: steps.organize.outputs.status == 'success' && !cancelled()
       with:
         name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
