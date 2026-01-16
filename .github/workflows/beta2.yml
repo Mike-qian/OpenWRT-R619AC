@@ -9,7 +9,11 @@ on:
         required: false
         default: 'false'
   schedule:
-    - cron: 0 5 * * *
+    - cron: 0 5 * * 5
+
+permissions:
+  contents: write
+  actions: write
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
@@ -26,12 +30,10 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    # 核心：设置 GitHub 自动生成的 Token 权限全开
-    permissions: write-all
 
     steps:
     - name: 准备完成
-      uses: actions/checkout@v4
+      uses: actions/checkout@main
 
     - name: 检查服务器配置
       run: |
@@ -59,10 +61,14 @@ jobs:
         remove-haskell: 'true'
         remove-codeql: 'true'
 
-    - name: 安装 Go
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: 安装 Go Stable
       uses: actions/setup-go@v5
       with:
         go-version: 'stable'
+        cache: false
 
     - name: 初始化编译环境
       env:
@@ -71,50 +77,47 @@ jobs:
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
         docker rmi $(docker images -q) 2>/dev/null
         sudo -E apt-get -qq update -y
-        sudo -E apt-get -qq full-upgrade -y
-        sudo -E apt-get -qq install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
-        bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
-        g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
-        libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev \
-        libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano \
-        ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
-        python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs \
-        upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
+        sudo bash -c 'bash <(curl -s https://build-scripts.immortalwrt.org/init_build_environment.sh)'  
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
-
+        
     - name: 克隆源码
       run: |
         git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
-
-    - name: 缓存编译依赖
-      uses: actions/cache@v4
-      with:
-        path: |
-          openwrt/staging_dir
-          openwrt/build_dir
-          openwrt/dl
-          openwrt/feeds
-        key: ${{ runner.os }}-openwrt-cache-${{ hashFiles('openwrt/feeds.conf.default') }}
-        restore-keys: |
-          ${{ runner.os }}-openwrt-cache-
 
     - name: 加载自定义 feeds
       run: |
         [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf
         chmod +x $DIY_P1_SH
+        cd openwrt
         $GITHUB_WORKSPACE/$DIY_P1_SH
 
-    - name: 更新/安装 feeds
+    - name: 缓存编译环境
+      uses: actions/cache@v4
+      with:
+        path: |
+          openwrt/staging_dir/host
+          openwrt/staging_dir/tool
+          openwrt/.ccache
+        key: ${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-${{ hashFiles('openwrt/.config') }}
+        restore-keys: |
+          ${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-
+          ${{ runner.os }}-openwrt-24.10-
+    
+    - name: 更新 feeds
+      run:  |
+          cd openwrt
+          ./scripts/feeds update -a
+          
+    - name: 安装 feeds
       run: |
-        cd openwrt
-        ./scripts/feeds update -a
-        rm -rf feeds/packages/lang/golang
-        git clone https://github.com/sbwml/packages_lang_golang.git feeds/packages/lang/golang
-        ./scripts/feeds install -a
-        ./scripts/feeds uninstall {mmdvm,mmdvm-host,p25-clients,ysf-clients,nxdn-clients,mmdvm-luci,dapnet-gateway,ircddb-gateway,libmmdvm,libwxwidgets,mmdvm-cal}
-
+          cd openwrt
+          rm -rf feeds/packages/lang/golang
+          git clone https://github.com/sbwml/packages_lang_golang.git feeds/packages/lang/golang
+          ./scripts/feeds install -a
+          ./scripts/feeds uninstall {mmdvm,mmdvm-host,p25-clients,ysf-clients,nxdn-clients,mmdvm-luci,dapnet-gateway,ircddb-gateway,libmmdvm,libwxwidgets,mmdvm-cal}
+ 
     - name: 加载自定义配置
       run: |
         [ -e files ] && mv files openwrt/files
@@ -123,9 +126,11 @@ jobs:
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
 
-    - name: SSH 连接到 Actions
-      uses: P3TERX/ssh2actions@v1.0.0
-      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh != 'false') || contains(github.event.action, 'ssh')
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+      if: github.event.inputs.ssh == 'true'
+      with:
+        limit-access-to-actor: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -154,7 +159,7 @@ jobs:
       run: df -hT
 
     - name: 上传 bin 文件夹
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@main
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
       with:
         name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
@@ -171,7 +176,7 @@ jobs:
         echo "status=success" >> ${GITHUB_OUTPUT}
 
     - name: 上传固件目录
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@main
       if: steps.organize.outputs.status == 'success' && !cancelled()
       with:
         name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
@@ -220,3 +225,15 @@ jobs:
         delete_tags: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Delete Old Cache (删除旧缓存)
+      shell: bash
+      run: |
+        CACHE_PREFIX="${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-"        
+        gh cache list --key "$CACHE_PREFIX" --json key --jq '.[] | .key' | while read -r key; do
+            echo "正在删除旧缓存: $key"
+            gh cache delete "$key"
+        done
+        echo "旧缓存清理完成。"
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
