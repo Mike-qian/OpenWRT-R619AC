@@ -9,11 +9,7 @@ on:
         required: false
         default: 'false'
   schedule:
-    - cron: 0 5 * * 5
-
-permissions:
-  contents: write
-  actions: write
+        - cron: 0 5 * * *
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
@@ -26,6 +22,7 @@ env:
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
+  GITHUB_TOKEN: ${{ secrets.TOKEN }}
 
 jobs:
   build:
@@ -64,11 +61,10 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: 安装 Go Stable
-      uses: actions/setup-go@v5
+    - name: 安装 Go 1.21.1
+      uses: actions/setup-go@v3
       with:
         go-version: 'stable'
-        cache: false
 
     - name: 初始化编译环境
       env:
@@ -77,7 +73,15 @@ jobs:
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
         docker rmi $(docker images -q) 2>/dev/null
         sudo -E apt-get -qq update -y
-        sudo bash -c 'bash <(curl -s https://build-scripts.immortalwrt.org/init_build_environment.sh)'  
+        sudo -E apt-get -qq full-upgrade -y
+        sudo -E apt-get -qq install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+        bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
+        g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
+        libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev \
+        libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano \
+        ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
+        python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs \
+        upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
@@ -86,6 +90,37 @@ jobs:
       run: |
         git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
 
+    - name: 缓存编译依赖和工具链
+      uses: actions/cache@v4
+      with:
+        path: |
+          openwrt/staging_dir
+          openwrt/build_dir
+        key: ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-toolchain-${{ hashFiles('openwrt/.config') }}
+        restore-keys: |
+          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-toolchain-
+          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-
+
+    - name: 缓存下载的软件包
+      uses: actions/cache@v4
+      with:
+        path: openwrt/dl
+        key: ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-dl-${{ hashFiles('openwrt/feeds.conf', 'openwrt/.config') }}
+        restore-keys: |
+          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-dl-
+          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-
+
+    - name: 缓存已安装的feeds
+      uses: actions/cache@v4
+      with:
+        path: openwrt/feeds
+        key: ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-feeds-${{ hashFiles('openwrt/feeds.conf') }}
+        restore-keys: |
+          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-feeds-
+          ${{ runner.os }}-cache-${{ env.REPO_BRANCH }}-
+
+
+
     - name: 加载自定义 feeds
       run: |
         [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf
@@ -93,18 +128,6 @@ jobs:
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P1_SH
 
-    - name: 缓存编译环境
-      uses: actions/cache@v4
-      with:
-        path: |
-          openwrt/staging_dir/host*
-          openwrt/staging_dir/tool*
-          openwrt/.ccache
-        key: ${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-${{ hashFiles('openwrt/.config') }}
-        restore-keys: |
-          ${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-
-          ${{ runner.os }}-openwrt-24.10-
-    
     - name: 更新 feeds
       run:  |
           cd openwrt
@@ -126,13 +149,11 @@ jobs:
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
 
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
-      if: github.event.inputs.ssh == 'true'
-      with:
-        limit-access-to-actor: false
+    - name: SSH 连接到 Actions
+      uses: P3TERX/ssh2actions@v1.0.0
+      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.TOKEN }}
 
     - name: 下载软件包
       id: package
@@ -190,32 +211,41 @@ jobs:
         touch release.txt
         echo "
         💻 路由: P&W R619AC 128M Immortalwrt
+
         📂 源码: ${{ env.REPO_URL }}
+
         🌳 分支: ${{ env.REPO_BRANCH }}
+
         ⏱️ 编译时间: $(date +"%Y年%m月%d日%H时%M分")
+
         🌐 管理地址: 192.168.1.1
+
         👤 用户名: root
+
         🔒 密码: 无密码 
+
         🚧 软件包-配置opkg-更新以下源
         src/gz openwrt_kiddin9 https://dl.openwrt.ai/latest/packages/arm_cortex-a7_neon-vfpv4/kiddin9
+        
         " >> release.txt
         echo "status=success" >> ${GITHUB_OUTPUT}
 
     - name: 自动发布固件到 Releases
       uses: softprops/action-gh-release@v2
       if: steps.tag.outputs.status == 'success' && !cancelled()
+      env:
+        GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
       with:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: ${{ env.FIRMWARE }}/*
-        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: 删除运行记录
       uses: Mattraks/delete-workflow-runs@main
       with:
         retain_days: 7
         keep_minimum_runs: 7
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ env.GITHUB_TOKEN }}
 
     - name: 删除自动发布的旧固件
       uses: dev-drprasad/delete-older-releases@master
@@ -223,17 +253,3 @@ jobs:
       with:
         keep_latest: 7
         delete_tags: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Delete Old Cache (删除旧缓存)
-      shell: bash
-      run: |
-        CACHE_PREFIX="${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-"        
-        gh cache list --key "$CACHE_PREFIX" --json key --jq '.[] | .key' | while read -r key; do
-            echo "正在删除旧缓存: $key"
-            gh cache delete "$key"
-        done
-        echo "旧缓存清理完成。"
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
