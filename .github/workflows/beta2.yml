@@ -11,7 +11,6 @@ on:
   schedule:
     - cron: 0 5 * * 5
 
-# 启用所有必要权限，确保自动生成的 GITHUB_TOKEN 拥有读写 Release、Actions 和内容的权限
 permissions:
   contents: write
   actions: write
@@ -65,9 +64,11 @@ jobs:
         remove-haskell: 'true'
         remove-codeql: 'true'
 
+    - name: Checkout
+      uses: actions/checkout@v4
 
     - name: 安装 Go Stable
-      uses: actions/setup-go@main
+      uses: actions/setup-go@v5
       with:
         go-version: 'stable'
         cache: false
@@ -88,8 +89,15 @@ jobs:
       run: |
         git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
 
+    - name: 加载自定义 feeds
+      run: |
+        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf
+        chmod +x $DIY_P1_SH
+        cd openwrt
+        $GITHUB_WORKSPACE/$DIY_P1_SH
+
     - name: 缓存编译环境
-      uses: actions/cache@main
+      uses: actions/cache@v4
       with:
         path: |
           openwrt/staging_dir/host
@@ -99,13 +107,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-
           ${{ runner.os }}-openwrt-24.10-
-
-    - name: 加载自定义 feeds
-      run: |
-        chmod +x $GITHUB_WORKSPACE/$DIY_P1_SH
-        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf
-        cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P1_SH
     
     - name: 更新 feeds
       run:  |
@@ -126,10 +127,10 @@ jobs:
         [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
         chmod +x $DIY_P2_SH
         cd openwrt
-        ./"$DIY_P2_SH"
+        $GITHUB_WORKSPACE/$DIY_P2_SH
 
     - name: Setup tmate session
-      uses: mxschmitt/action-tmate@master
+      uses: mxschmitt/action-tmate@v3
       if: github.event.inputs.ssh == 'true'
       with:
         limit-access-to-actor: false
@@ -161,7 +162,7 @@ jobs:
       run: df -hT
 
     - name: 上传 bin 文件夹
-      uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@v4
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
       with:
         name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
@@ -178,7 +179,7 @@ jobs:
         echo "status=success" >> ${GITHUB_OUTPUT}
 
     - name: 上传固件目录
-      uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@v4
       if: steps.organize.outputs.status == 'success' && !cancelled()
       with:
         name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
@@ -204,7 +205,7 @@ jobs:
         echo "status=success" >> ${GITHUB_OUTPUT}
 
     - name: 自动发布固件到 Releases
-      uses: softprops/action-gh-release@master
+      uses: softprops/action-gh-release@v2
       if: steps.tag.outputs.status == 'success' && !cancelled()
       with:
         tag_name: ${{ steps.tag.outputs.release_tag }}
