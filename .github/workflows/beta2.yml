@@ -105,7 +105,7 @@ jobs:
         [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf
         chmod +x $DIY_P1_SH
         cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P1_SH
+        ./"$DIY_P1_SH"
     
     - name: 更新 feeds
       run:  |
@@ -126,7 +126,7 @@ jobs:
         [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
         chmod +x $DIY_P2_SH
         cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P2_SH
+        ./"$DIY_P2_SH"
 
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@master
