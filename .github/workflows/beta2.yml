@@ -88,13 +88,6 @@ jobs:
       run: |
         git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
 
-    - name: 加载自定义 feeds
-      run: |
-        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf
-        chmod +x $DIY_P1_SH
-        cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P1_SH
-
     - name: 缓存编译环境
       uses: actions/cache@main
       with:
@@ -106,6 +99,13 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-
           ${{ runner.os }}-openwrt-24.10-
+
+    - name: 加载自定义 feeds
+      run: |
+        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf
+        chmod +x $DIY_P1_SH
+        cd openwrt
+        $GITHUB_WORKSPACE/$DIY_P1_SH
     
     - name: 更新 feeds
       run:  |
