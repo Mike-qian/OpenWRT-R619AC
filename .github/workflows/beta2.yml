@@ -102,10 +102,10 @@ jobs:
 
     - name: 加载自定义 feeds
       run: |
+        chmod +x $GITHUB_WORKSPACE/$DIY_P1_SH
         [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf
-        chmod +x $DIY_P1_SH
         cd openwrt
-        ./"$DIY_P1_SH"
+        $GITHUB_WORKSPACE/$DIY_P1_SH
     
     - name: 更新 feeds
       run:  |
