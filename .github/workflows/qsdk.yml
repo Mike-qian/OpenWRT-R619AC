@@ -1,4 +1,4 @@
-name: Build-QSDK-5.15
+name: Build-QSDK-6x
 
 on:
   repository_dispatch:
@@ -100,14 +100,14 @@ jobs:
       run:  |
           cd openwrt
           ./scripts/feeds update -a
-          wget -O feeds/packages/lang/rust/Makefile https://raw.githubusercontent.com/immortalwrt/packages/refs/heads/master/lang/rust/Makefile
+          #wget -O feeds/packages/lang/rust/Makefile https://raw.githubusercontent.com/immortalwrt/packages/refs/heads/master/lang/rust/Makefile
     - name: 安装 feeds
       run: |
           cd openwrt
           rm -rf feeds/packages/lang/golang
-          git clone https://github.com/sbwml/packages_lang_golang.git feeds/packages/lang/golang
+          #git clone https://github.com/sbwml/packages_lang_golang.git feeds/packages/lang/golang
           ./scripts/feeds install -a
-          ./scripts/feeds uninstall {mmdvm,mmdvm-host,p25-clients,ysf-clients,nxdn-clients,mmdvm-luci,dapnet-gateway,ircddb-gateway,libmmdvm,libwxwidgets,mmdvm-cal}
+          #./scripts/feeds uninstall {mmdvm,mmdvm-host,p25-clients,ysf-clients,nxdn-clients,mmdvm-luci,dapnet-gateway,ircddb-gateway,libmmdvm,libwxwidgets,mmdvm-cal}
  
     - name: 加载自定义配置
       run: |
