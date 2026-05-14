@@ -19,8 +19,8 @@ permissions:
   id-token: write
 
 env:
-  REPO_URL: https://github.com/everything411/qsdk.git
-  REPO_BRANCH: 12.5.2783.2994
+  REPO_URL: https://github.com/VIKINGYFY/immortalwrt.git
+  REPO_BRANCH: main
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: qsdk.config
   DIY_P1_SH: diy5.sh
