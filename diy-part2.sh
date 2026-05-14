@@ -21,7 +21,8 @@
 #rm -rf ./feeds/luci/applications/luci-app-bypass/  
 #git clone https://github.com/tianiue/luci-app-bypass ./feeds/luci/applications/luci-app-bypass/ 
 
-wget -P ./target/linux/ipq40xx/base-files/etc/hotplug.d/block/ https://raw.githubusercontent.com/Mike-qian/dns2tcp/main/20-udisk-mount
-chmod 0755 target/linux/ipq40xx/base-files/etc/hotplug.d/block/20-udisk-mount
-sed -i 's/option check_signature 1/option check_signature 0/' package/system/opkg/files/opkg-smime.conf
-sed -i '$a src/gz openwrt_kiddin9 https://dl.openwrt.ai/latest/packages/arm_cortex-a7_neon-vfpv4/kiddin9' package/system/opkg/files/customfeeds.conf
+#wget -P ./target/linux/ipq40xx/base-files/etc/hotplug.d/block/ https://raw.githubusercontent.com/Mike-qian/dns2tcp/main/20-udisk-mount
+#chmod 0755 target/linux/ipq40xx/base-files/etc/hotplug.d/block/20-udisk-mount
+#sed -i 's/option check_signature 1/option check_signature 0/' package/system/opkg/files/opkg-smime.conf
+#sed -i '$a src/gz openwrt_kiddin9 https://dl.openwrt.ai/latest/packages/arm_cortex-a7_neon-vfpv4/kiddin9' package/system/opkg/files/customfeeds.conf
+
