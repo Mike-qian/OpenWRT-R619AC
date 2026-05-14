@@ -1,0 +1,230 @@
+name: Build-QSDK-5.15
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+    inputs:
+      ssh:
+        description: 'SSH connection to Actions'
+        required: false
+        default: 'false'
+  schedule:
+    - cron: 0 5 * * 5
+
+permissions:
+  contents: write
+  actions: write
+  discussions: write
+  pages: write
+  id-token: write
+
+env:
+  REPO_URL: https://github.com/everything411/qsdk.git
+  REPO_BRANCH: 12.5.2783.2994
+  FEEDS_CONF: feeds.conf.default
+  CONFIG_FILE: qsdk.config
+  DIY_P1_SH: diy5.sh
+  DIY_P2_SH: diy-part2.sh
+  UPLOAD_BIN_DIR: true
+  UPLOAD_FIRMWARE: true
+  UPLOAD_RELEASE: true
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: 准备完成
+      uses: actions/checkout@v4
+
+    - name: 检查服务器配置
+      run: |
+        echo "若分配的服务器性能不足，务必及时取消，重新运行！"
+        echo -e "------------------------------- CPU信息 -------------------------------\n"
+        echo "CPU物理数量:$(cat /proc/cpuinfo| grep "physical id"| sort| uniq| wc -l)"
+        echo -e "CPU核心及版本信息: $(cat /proc/cpuinfo | grep name | cut -f2 -d: | uniq -c) \n"
+        echo -e "------------------------------- 内存信息 -------------------------------\n"
+        echo "已安装内存详细信息: "
+        sudo lshw -short -C memory | grep GiB
+        echo -e "\n"
+        echo -e "------------------------------- 磁盘信息 -------------------------------\n"
+        echo -e "磁盘数量: $(ls /dev/sd* | grep -v [1-9] | wc -l) \n"
+        echo "------------------------------- 磁盘详情 -------------------------------\n"
+        df -Th
+
+    - name: Maximize build space
+      uses: easimon/maximize-build-space@master
+      with:
+        swap-size-mb: 4096
+        temp-reserve-mb: 1024
+        root-reserve-mb: 8192
+        remove-dotnet: 'true'
+        remove-android: 'true'
+        remove-haskell: 'true'
+        remove-codeql: 'true'
+
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: 安装 Go Stable
+      uses: actions/setup-go@main
+      with:
+        go-version: 'stable'
+        cache: false
+
+    - name: 初始化编译环境
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+        docker rmi $(docker images -q) 2>/dev/null || true
+        sudo -E apt-get -qq update -y
+        sudo bash -c 'bash <(curl -s https://build-scripts.immortalwrt.org/init_build_environment.sh)'  
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo timedatectl set-timezone "$TZ"
+        
+    - name: 克隆源码
+      run: |
+        git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
+
+    - name: 加载自定义 feeds
+      run: |
+        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf
+        chmod +x $DIY_P1_SH
+        cd openwrt
+        $GITHUB_WORKSPACE/$DIY_P1_SH
+    
+    - name: 更新 feeds
+      run:  |
+          cd openwrt
+          ./scripts/feeds update -a
+          wget -O feeds/packages/lang/rust/Makefile https://raw.githubusercontent.com/immortalwrt/packages/refs/heads/master/lang/rust/Makefile
+    - name: 安装 feeds
+      run: |
+          cd openwrt
+          rm -rf feeds/packages/lang/golang
+          git clone https://github.com/sbwml/packages_lang_golang.git feeds/packages/lang/golang
+          ./scripts/feeds install -a
+          ./scripts/feeds uninstall {mmdvm,mmdvm-host,p25-clients,ysf-clients,nxdn-clients,mmdvm-luci,dapnet-gateway,ircddb-gateway,libmmdvm,libwxwidgets,mmdvm-cal}
+ 
+    - name: 加载自定义配置
+      run: |
+        [ -e files ] && mv files openwrt/files
+        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+        chmod +x $DIY_P2_SH
+        cd openwrt
+        $GITHUB_WORKSPACE/$DIY_P2_SH
+
+    - name: 缓存编译环境
+      uses: actions/cache@v4
+      with:
+        path: |
+          openwrt/staging_dir/host
+          openwrt/staging_dir/tool
+          openwrt/.ccache
+        key: ${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-${{ hashFiles('openwrt/.config') }}
+        restore-keys: |
+          ${{ runner.os }}-openwrt-24.10-${{ env.REPO_BRANCH }}-
+          ${{ runner.os }}-openwrt-24.10-
+          
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@master
+      if: github.event.inputs.ssh == 'true'
+      with:
+        limit-access-to-actor: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 下载软件包
+      id: package
+      run: |
+        cd openwrt
+        make defconfig
+        make download -j8
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
+
+    - name: 编译固件
+      id: compile
+      run: |
+        cd openwrt
+        echo -e "$(nproc) thread compile"
+        make -j$(nproc) || make -j1 || make -j1 V=s
+        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+        grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
+        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
+        echo "status=success" >> ${GITHUB_OUTPUT}
+
+    - name: 检查磁盘空间
+      if: (!cancelled())
+      run: df -hT
+
+    - name: 上传 bin 文件夹
+      uses: actions/upload-artifact@main
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
+      with:
+        name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        path: openwrt/bin
+
+    - name: 整理固件文件
+      id: organize
+      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+      run: |
+        cd openwrt/bin/targets/*/*
+        rm -rf packages
+        cp -f ../../../../.config ./
+        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+        echo "status=success" >> ${GITHUB_OUTPUT}
+
+    - name: 上传固件目录
+      uses: actions/upload-artifact@main
+      if: steps.organize.outputs.status == 'success' && !cancelled()
+      with:
+        name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        path: ${{ env.FIRMWARE }}
+
+    - name: 生成发布标签
+      id: tag
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
+      run: |
+        echo "release_tag=$(date +"%Y.%m.%d-%H.%M")" >> ${GITHUB_OUTPUT}
+        touch release.txt
+        echo "
+        💻 路由: P&W R619AC 128M Immortalwrt
+        📂 源码: ${{ env.REPO_URL }}
+        🌳 分支: ${{ env.REPO_BRANCH }}
+        ⏱️ 编译时间: $(date +"%Y年%m月%d日%H时%M分")
+        🌐 管理地址: 192.168.1.1
+        👤 用户名: root
+        🔒 密码: 无密码 
+        🚧 软件包-配置opkg-更新以下源
+        src/gz openwrt_kiddin9 https://dl.openwrt.ai/latest/packages/arm_cortex-a7_neon-vfpv4/kiddin9
+        " >> release.txt
+        echo "status=success" >> ${GITHUB_OUTPUT}
+
+    - name: 自动发布固件到 Releases
+      uses: softprops/action-gh-release@master
+      if: steps.tag.outputs.status == 'success' && !cancelled()
+      with:
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        body_path: release.txt
+        files: ${{ env.FIRMWARE }}/*
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 删除运行记录
+      uses: Mattraks/delete-workflow-runs@main
+      with:
+        retain_days: 7
+        keep_minimum_runs: 7
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 删除自动发布的旧固件
+      uses: dev-drprasad/delete-older-releases@master
+      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      with:
+        keep_latest: 7
+        delete_tags: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
