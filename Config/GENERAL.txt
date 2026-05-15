@@ -15,6 +15,7 @@ CONFIG_PACKAGE_luci-app-ttyd=y
 CONFIG_PACKAGE_luci-app-cpufreq=y
 CONFIG_PACKAGE_luci-app-wolplus=n
 CONFIG_PACKAGE_kmod-tcp-bbr=y
+CONFIG_PACKAGE_libopenssl-afalg=y
 #删除插件
 CONFIG_PACKAGE_luci-app-attendedsysupgrade=n
 CONFIG_PACKAGE_luci-app-wol=n
