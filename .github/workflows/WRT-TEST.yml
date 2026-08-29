@@ -14,15 +14,17 @@ on:
         required: true
         type: choice
         options:
-          - IPQ60XX-WIFI-YES
+          - IPQ53XX-WIFI-NO
           - IPQ60XX-WIFI-NO
-          - IPQ807X-WIFI-YES
+          - IPQ60XX-WIFI-YES
           - IPQ807X-WIFI-NO
-          - MEDIATEK-WIFI-YES
+          - IPQ807X-WIFI-YES
+          - IPQ95XX-WIFI-YES
           - MEDIATEK-WIFI-NO
+          - MEDIATEK-WIFI-YES
           - ROCKCHIP
-          - X86
           - TEST
+          - X86
       SOURCE:
         default: 'VIKINGYFY/immortalwrt'
         required: true
@@ -41,7 +43,7 @@ on:
         type: string
       TEST:
         description: '仅输出配置文件，不编译固件。'
-        default: 'true'
+        default: true
         required: true
         type: boolean
 
@@ -78,4 +80,4 @@ jobs:
       #插件调整
       WRT_PACKAGE: ${{inputs.PACKAGE}}
       #仅输出配置文件
-      WRT_TEST: ${{inputs.TEST}}
+      WRT_TEST: ${{inputs.TEST || false}}
