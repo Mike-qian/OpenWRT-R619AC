@@ -11,16 +11,17 @@ if [ -n "$HP_DIR" ]; then
 
 	HP_RESOURCES="$HP_DIR/root/etc/homeproxy/resources"
 	HP_DASHBOARD="$HP_DIR/root/etc/homeproxy/dashboard"
-	HP_IP_SOURCE="https://cdn.jsdelivr.net/gh/Loyalsoldier/surge-rules@release/cncidr.txt"
+	HP_GEOIP_SOURCE="https://cdn.jsdelivr.net/gh/SagerNet/sing-geoip@rule-set/geoip-cn.srs"
 	HP_GEOSITE_SOURCE="https://cdn.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set-unstable/geosite-cn.srs"
-	HP_IP_VERSION_URL="https://github.com/Loyalsoldier/surge-rules/releases/latest"
+	HP_GEOIP_VERSION_URL="https://github.com/SagerNet/sing-geoip/releases/latest"
 	HP_GEOSITE_VERSION_URL="https://github.com/SagerNet/sing-geosite/releases/latest"
 	HP_DASHBOARD_SOURCE="https://codeload.github.com/SagerNet/sing-box-dashboard/zip/refs/heads/gh-pages"
 	HP_DASHBOARD_VERSION_URL="https://github.com/SagerNet/sing-box-dashboard/commits/gh-pages.atom"
 	HP_USER_AGENT="HomeProxy resource preset"
+	HP_SING_BOX="${HP_SING_BOX:-sing-box}"
 
 	HP_PREREQUISITES_MISSING=0
-	for HP_COMMAND in curl awk; do
+	for HP_COMMAND in curl awk head; do
 		command -v "$HP_COMMAND" > /dev/null 2>&1 || {
 			echo "homeproxy resource preset requires $HP_COMMAND!"
 			HP_PREREQUISITES_MISSING=1
@@ -61,6 +62,25 @@ if [ -n "$HP_DIR" ]; then
 			--max-time 60 -A "$HP_USER_AGENT" -o "$2" "$1" && [ -s "$2" ]
 	}
 
+	hp_versioned_url() {
+		case "$1" in
+		http://*|https://*) printf '%s?v=%s' "$1" "$2" ;;
+		*) printf '%s' "$1" ;;
+		esac
+	}
+
+	hp_validate_rule_set() {
+		local rule_set="$1" header
+
+		[ -s "$rule_set" ] || return 1
+		header="$(head -c 3 "$rule_set" 2>/dev/null)" || return 1
+		[ "$header" = "SRS" ] || return 1
+		if command -v "$HP_SING_BOX" > /dev/null 2>&1; then
+			"$HP_SING_BOX" rule-set decompile "$rule_set" \
+				-o "$HP_TMP/$(basename "$rule_set").json" > /dev/null 2>&1 || return 1
+		fi
+	}
+
 	hp_fetch_dashboard_version() {
 		local feed version
 
@@ -85,51 +105,25 @@ if [ -n "$HP_DIR" ]; then
 	hp_replace_file() {
 		local source_file="$1" target_file="$2" temporary_file
 
-		temporary_file="${target_file}.tmp.$$"
-		cp "$source_file" "$temporary_file" || return 1
-		chmod 0644 "$temporary_file" || return 1
-		mv -f "$temporary_file" "$target_file"
+		temporary_file="${target_file}.new.$$"
+		if ! cp "$source_file" "$temporary_file" || \
+			! chmod 0644 "$temporary_file" || \
+			! mv -f "$temporary_file" "$target_file"; then
+			rm -f "$temporary_file"
+			return 1
+		fi
 	}
 
-	hp_update_ip() {
-		local version file
+	hp_update_rule_set() {
+		local name="$1" source="$2" version_url="$3" version
 
-		version="$(hp_fetch_release_version "$HP_IP_VERSION_URL")" || return 1
-		hp_download "$HP_IP_SOURCE?v=$version" "$HP_TMP/cncidr.txt" || return 1
-		awk -F, -v ipv4="$HP_TMP/china_ip4.txt" -v ipv6="$HP_TMP/china_ip6.txt" '
-			$1 == "IP-CIDR" { print $2 > ipv4 }
-			$1 == "IP-CIDR6" { print $2 > ipv6 }
-		' "$HP_TMP/cncidr.txt" || return 1
-		[ -s "$HP_TMP/china_ip4.txt" ] && [ -s "$HP_TMP/china_ip6.txt" ] || return 1
-		awk '
-			BEGIN {
-				print "{\"version\":5,\"rules\":[{\"ip_cidr\":["
-				first = 1
-			}
-			NF {
-				printf "%s\"%s\"", first ? "" : ",", $0
-				first = 0
-			}
-			END { print "]}]}" }
-		' "$HP_TMP/china_ip4.txt" "$HP_TMP/china_ip6.txt" > "$HP_TMP/geoip_cn.json" || return 1
-		[ -s "$HP_TMP/geoip_cn.json" ] || return 1
-		printf '%s\n' "$version" > "$HP_TMP/china_ip4.ver"
-		printf '%s\n' "$version" > "$HP_TMP/china_ip6.ver"
-		for file in china_ip4.txt china_ip4.ver china_ip6.txt china_ip6.ver geoip_cn.json; do
-			hp_replace_file "$HP_TMP/$file" "$HP_RESOURCES/$file" || return 1
-		done
-		echo "homeproxy resources: china_ip $version"
-	}
-
-	hp_update_geosite() {
-		local version
-
-		version="$(hp_fetch_release_version "$HP_GEOSITE_VERSION_URL")" || return 1
-		hp_download "$HP_GEOSITE_SOURCE?v=$version" "$HP_TMP/geosite_cn.srs" || return 1
-		printf '%s\n' "$version" > "$HP_TMP/geosite_cn.ver"
-		hp_replace_file "$HP_TMP/geosite_cn.srs" "$HP_RESOURCES/geosite_cn.srs" || return 1
-		hp_replace_file "$HP_TMP/geosite_cn.ver" "$HP_RESOURCES/geosite_cn.ver" || return 1
-		echo "homeproxy resources: geosite_cn $version"
+		version="$(hp_fetch_release_version "$version_url")" || return 1
+		hp_download "$(hp_versioned_url "$source" "$version")" "$HP_TMP/$name.srs" || return 1
+		hp_validate_rule_set "$HP_TMP/$name.srs" || return 1
+		printf '%s\n' "$version" > "$HP_TMP/$name.ver" || return 1
+		hp_replace_file "$HP_TMP/$name.srs" "$HP_RESOURCES/$name.srs" || return 1
+		hp_replace_file "$HP_TMP/$name.ver" "$HP_RESOURCES/$name.ver" || return 1
+		echo "homeproxy resources: $name $version"
 	}
 
 	hp_update_dashboard() {
@@ -169,12 +163,12 @@ if [ -n "$HP_DIR" ]; then
 	fi
 
 	if [ "$HP_PRESET_FAILED" -eq 0 ]; then
-		if ! hp_update_ip; then
-			echo "failed to update homeproxy IP resources; continuing!"
+		if ! hp_update_rule_set geoip_cn "$HP_GEOIP_SOURCE" "$HP_GEOIP_VERSION_URL"; then
+			echo "failed to update homeproxy geoip resource; continuing!"
 			HP_PRESET_FAILED=1
 		fi
 
-		if ! hp_update_geosite; then
+		if ! hp_update_rule_set geosite_cn "$HP_GEOSITE_SOURCE" "$HP_GEOSITE_VERSION_URL"; then
 			echo "failed to update homeproxy geosite; continuing!"
 			HP_PRESET_FAILED=1
 		fi
@@ -191,7 +185,7 @@ if [ -n "$HP_DIR" ]; then
 	if [ "$HP_PRESET_FAILED" -eq 0 ]; then
 		echo "homeproxy data has been updated!"
 	else
-		echo "homeproxy resource preset completed with errors; continuing other handlers!"
+		echo "homeproxy resource preset completed with errors; continuing!"
 	fi
 fi
 
