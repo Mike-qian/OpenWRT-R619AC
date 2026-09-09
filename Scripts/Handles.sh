@@ -12,13 +12,12 @@ if [ -n "$HP_DIR" ]; then
 	HP_RESOURCES="$HP_DIR/root/etc/homeproxy/resources"
 	HP_DASHBOARD="$HP_DIR/root/etc/homeproxy/dashboard"
 	HP_GEOIP_SOURCE="https://cdn.jsdelivr.net/gh/SagerNet/sing-geoip@rule-set/geoip-cn.srs"
-	HP_GEOSITE_SOURCE="https://cdn.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set-unstable/geosite-cn.srs"
 	HP_GEOIP_VERSION_URL="https://github.com/SagerNet/sing-geoip/releases/latest"
+	HP_GEOSITE_SOURCE="https://cdn.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set-unstable/geosite-cn.srs"
 	HP_GEOSITE_VERSION_URL="https://github.com/SagerNet/sing-geosite/releases/latest"
 	HP_DASHBOARD_SOURCE="https://codeload.github.com/SagerNet/sing-box-dashboard/zip/refs/heads/gh-pages"
 	HP_DASHBOARD_VERSION_URL="https://github.com/SagerNet/sing-box-dashboard/commits/gh-pages.atom"
 	HP_USER_AGENT="HomeProxy resource preset"
-	HP_SING_BOX="${HP_SING_BOX:-sing-box}"
 
 	HP_PREREQUISITES_MISSING=0
 	for HP_COMMAND in curl awk head; do
@@ -75,7 +74,7 @@ if [ -n "$HP_DIR" ]; then
 		[ -s "$rule_set" ] || return 1
 		header="$(head -c 3 "$rule_set" 2>/dev/null)" || return 1
 		[ "$header" = "SRS" ] || return 1
-		if command -v "$HP_SING_BOX" > /dev/null 2>&1; then
+		if command -v sing-box > /dev/null 2>&1; then
 			"$HP_SING_BOX" rule-set decompile "$rule_set" \
 				-o "$HP_TMP/$(basename "$rule_set").json" > /dev/null 2>&1 || return 1
 		fi
