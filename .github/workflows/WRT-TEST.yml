@@ -14,17 +14,18 @@ on:
         required: true
         type: choice
         options:
-          - IPQ53XX-WIFI-NO
+          - AIROHA
+          - IPQ53XX
           - IPQ60XX-WIFI-NO
           - IPQ60XX-WIFI-YES
           - IPQ807X-WIFI-NO
           - IPQ807X-WIFI-YES
-          - IPQ95XX-WIFI-YES
+          - IPQ95XX
           - MEDIATEK-WIFI-NO
           - MEDIATEK-WIFI-YES
           - ROCKCHIP
-          - TEST
           - X86
+          - TEST
       SOURCE:
         default: 'VIKINGYFY/immortalwrt'
         required: true
@@ -32,10 +33,8 @@ on:
         options:
           - VIKINGYFY/immortalwrt
           - immortalwrt/immortalwrt
-          - LiBwrt/openwrt-6.x
-          - qosmio/openwrt-ipq
       BRANCH:
-        default: 'main'
+        default: 'owrt'
         required: true
         type: string
       PACKAGE:
